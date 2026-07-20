@@ -4,7 +4,7 @@
 let state = { machines: [], names: [] };
 let pollTimer = null;
 let searchQuery = '';
-let mode = 'all'; // 'all' | 'card'
+let mode = 'card'; // 'all' | 'card' (default: per-card)
 let activeMachineId = null; // machine with an open inline form (edit or queue); skip re-render during poll
 
 // persistent identity

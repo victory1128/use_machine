@@ -74,9 +74,26 @@
       </div>
       <div class="who-tags" id="who-tags"></div>
       <div class="mode-toggle">
-        <button class="mode-btn active" data-mode="all">全部占用</button>
-        <button class="mode-btn" data-mode="card">按卡占用</button>
+        <button class="mode-btn" data-mode="all">全部占用</button>
+        <button class="mode-btn active" data-mode="card">按卡占用</button>
       </div>
+    </div>
+  </div>
+
+  <!-- 顶部用法指南 -->
+  <div class="guide">
+    <div class="guide-title">📋 使用说明</div>
+    <ol class="guide-steps">
+      <li>顶部填好 <b>「我是 ___」</b>(填一次自动记住),可选拍备注 / 点快捷标签。</li>
+      <li><b>占用卡</b>:默认「按卡占用」模式,点空闲卡(淡绿)即占那一张;切到「全部占用」可点机器「占用」按钮一键占满。</li>
+      <li><b>释放卡</b>:点自己占用的卡(蓝色 ✓)直接释放,或点机器「释放我的」批量释放。</li>
+      <li><b>排队</b>:机器满时点「排队」加入等待队列,有空再来。</li>
+    </ol>
+    <div class="guide-legend">
+      <span class="lg lg-free">淡绿=空闲</span>
+      <span class="lg lg-busy">淡黄=被占用</span>
+      <span class="lg lg-mine">淡蓝=我占用</span>
+      <span class="muted">· 顶栏 ⚙ 定时清空 / ⇩ 批量导入 / ✎ 编辑机器</span>
     </div>
   </div>
 
@@ -97,13 +114,6 @@
       <p>没有匹配的机器。</p>
     </div>
   </main>
-
-  <div id="hint" class="hint">
-    <b>用法:</b> 顶部填好名字 →
-    <b>全部占用</b>(默认)模式:点机器「占用」一键占满空闲卡;
-    切到 <b>按卡占用</b>:点单张卡只占那一张。
-    点自己占用的卡(蓝色)释放,或用「释放我的」批量释放。
-  </div>
 
   <div id="toast" class="toast" hidden></div>
   <script src="/app.js"></script>
