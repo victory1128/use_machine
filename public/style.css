@@ -75,14 +75,6 @@ body {
 }
 .who-tag:hover { border-color: var(--primary); color: var(--text); }
 .who-tag.active { background: var(--primary); border-color: var(--primary); color: #fff; }
-.mode-toggle {
-  margin-left: auto; display: flex; background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 2px;
-}
-.mode-btn {
-  border: none; background: transparent; color: var(--muted);
-  padding: 4px 10px; font-size: 12px; cursor: pointer; border-radius: 6px; transition: .12s;
-}
-.mode-btn.active { background: var(--primary); color: #fff; }
 
 /* buttons */
 .btn {
@@ -253,7 +245,6 @@ main { max-width: 1200px; margin: 0 auto; padding: 14px 18px; }
   .search-box { order: 3; flex-basis: 100%; max-width: none; }
   .whobar { padding: 8px 12px; }
   #who-info { width: 130px; }
-  .mode-toggle { margin-left: 0; }
   main { padding: 12px; }
   .brand .subtitle { display: none; }
   .card-grid { grid-template-columns: repeat(auto-fill, minmax(52px, 1fr)); }

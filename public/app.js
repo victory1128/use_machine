@@ -4,7 +4,6 @@
 let state = { machines: [], names: [] };
 let pollTimer = null;
 let searchQuery = '';
-let mode = 'card'; // 'all' | 'card' (default: per-card)
 let activeMachineId = null; // machine with an open inline form (edit or queue); skip re-render during poll
 
 // persistent identity
@@ -112,7 +111,7 @@ function renderMachine(m) {
         <span class="machine-stats"><b>${free}</b>/<b>${total}</b> 空闲${mine ? ` · <b>${mine}</b> 我的` : ''}</span>
       </div>
       <div class="machine-actions">
-        ${free > 0 ? `<button class="btn btn-sm btn-primary" data-act="occupy-all" data-mid="${m.id}">占用</button>` : ''}
+        ${free > 0 ? `<button class="btn btn-sm btn-primary" data-act="occupy-all" data-mid="${m.id}">全部占用</button>` : ''}
         ${mine > 0 ? `<button class="btn btn-sm" data-act="release-mine" data-mid="${m.id}">释放我的</button>` : ''}
         <button class="btn btn-sm" data-act="queue" data-mid="${m.id}">排队</button>
         <button class="btn btn-sm btn-ghost" data-act="edit" data-mid="${m.id}" title="编辑机器信息">✎</button>
@@ -158,7 +157,7 @@ function renderGpu(c) {
     node.innerHTML = `
       <div class="gpu-label">${escapeHtml(c.label)}</div>
       <div class="gpu-status">空闲</div>`;
-    node.title = mode === 'card' ? '点击占用此卡' : '切到「按卡占用」模式后可单选';
+    node.title = '点击占用此卡';
   }
   return node;
 }
@@ -228,10 +227,6 @@ document.getElementById('machines').addEventListener('click', async (e) => {
   if (!cardObj) return;
 
   if (!cardObj.occupancy) {
-    if (mode !== 'card') {
-      toast('当前是「全部占用」模式。切到「按卡占用」可单选,或点机器「占用」按钮占满', '');
-      return;
-    }
     const user = currentUser();
     if (!user) return toast('请先在顶部填名字', 'error');
     if (await occupyCards(mid, [cardObj.id], user, currentInfo())) toast(`已占用 ${cardObj.label}`, 'ok');
@@ -326,7 +321,7 @@ function openQueueJoin(mid) {
   u.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); i.focus(); } if (e.key === 'Escape') closeJoin(); });
 }
 
-// ---------- who bar / mode / search ----------
+// ---------- who bar / search ----------
 function initWhoBar() {
   const nameInp = document.getElementById('who-name');
   const infoInp = document.getElementById('who-info');
@@ -344,15 +339,6 @@ function initWhoBar() {
       localStorage.setItem('activeTags', JSON.stringify([...activeTags]));
     };
     tagsEl.appendChild(chip);
-  });
-
-  document.querySelectorAll('.mode-btn').forEach((b) => {
-    b.onclick = () => {
-      mode = b.dataset.mode;
-      document.querySelectorAll('.mode-btn').forEach((x) => x.classList.toggle('active', x === b));
-      render();
-      toast(mode === 'all' ? '模式:全部占用(点机器「占用」占满)' : '模式:按卡占用(点单卡占用)', '');
-    };
   });
 
   const search = document.getElementById('search');
