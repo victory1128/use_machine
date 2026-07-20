@@ -20,7 +20,20 @@
       <div class="topbar-actions">
         <span id="sync-indicator" class="sync" title="实时同步状态">●</span>
         <button id="btn-schedule" class="btn btn-ghost" title="定时清空设置">⚙</button>
+        <button id="btn-import" class="btn btn-ghost" title="批量导入机器">⇩ 导入</button>
         <button id="btn-add-machine" class="btn btn-primary">+ 添加机器</button>
+      </div>
+    </div>
+
+    <!-- 批量导入面板 -->
+    <div id="import-panel" class="import-panel" hidden>
+      <div class="imp-head">批量导入机器(每行一台,默认 8 张卡)</div>
+      <div class="imp-format muted">格式:<code>机器名 | 描述</code>(描述可空,| 可省略)</div>
+      <textarea id="imp-text" rows="8" placeholder="A100-Server-01 | 8×A100 80GB,训练专用&#10;A800-Server-02 | 8×A800,推理&#10;3090-Workstation | 4×3090,轻量任务"></textarea>
+      <div class="imp-actions">
+        <span id="imp-result" class="muted"></span>
+        <button id="imp-cancel" class="btn btn-ghost btn-sm">取消</button>
+        <button id="imp-go" class="btn btn-primary btn-sm">导入</button>
       </div>
     </div>
 

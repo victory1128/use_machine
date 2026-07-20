@@ -222,6 +222,36 @@ function createMachine(body) {
   return { status: 201, body: machine };
 }
 
+// POST /api/machines/bulk  { items: [{name, description?}, ...], cardCount?: 8 }
+// Quick import: only name + description needed, default 8 cards each.
+function createMachinesBulk(body) {
+  const items = body && Array.isArray(body.items) ? body.items : [];
+  if (!items.length) return { status: 400, body: { error: 'items required' } };
+  const count = Math.max(0, Math.min(64, parseInt(body.cardCount, 10) || 8));
+  const created = [];
+  const skipped = [];
+  for (let idx = 0; idx < items.length; idx++) {
+    const it = items[idx] || {};
+    const name = it.name != null ? String(it.name).trim() : '';
+    if (!name) { skipped.push({ index: idx, reason: 'empty name' }); continue; }
+    const machine = normalizeMachine({
+      id: uid(),
+      name,
+      description: it.description ? String(it.description).trim() : '',
+      cards: Array.from({ length: count }, (_, i) => ({
+        id: `card-${i}`,
+        label: `NPU${i}`,
+        occupancy: null,
+      })),
+      queue: [],
+    });
+    state.machines.push(machine);
+    created.push(machine);
+  }
+  if (created.length) persist();
+  return { status: 201, body: { created: created.length, skipped, machines: created } };
+}
+
 // PATCH /api/machines/:id  { name?, description? }
 function updateMachine(id, body) {
   const m = findMachine(id);
@@ -461,6 +491,12 @@ const server = http.createServer(async (req, res) => {
     const body = await readBody(req);
     if (body.__parseError) return sendJson(res, 400, { error: 'invalid json' });
     const r = createMachine(body);
+    return sendJson(res, r.status, r.body);
+  }
+  if (p === '/api/machines/bulk' && method === 'POST') {
+    const body = await readBody(req);
+    if (body.__parseError) return sendJson(res, 400, { error: 'invalid json' });
+    const r = createMachinesBulk(body);
     return sendJson(res, r.status, r.body);
   }
   let m = p.match(/^\/api\/machines\/([\w-]+)$/);

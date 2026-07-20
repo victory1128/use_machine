@@ -389,6 +389,48 @@ function toast(msg, kind) {
 function startPolling() { if (pollTimer) clearInterval(pollTimer); pollTimer = setInterval(refresh, 4000); }
 setInterval(() => render(), 60000);
 
+// ---------- bulk import panel ----------
+document.getElementById('btn-import').onclick = () => {
+  document.getElementById('import-panel').hidden = false;
+  document.getElementById('imp-result').textContent = '';
+  setTimeout(() => document.getElementById('imp-text').focus(), 30);
+};
+document.getElementById('imp-cancel').onclick = () => { document.getElementById('import-panel').hidden = true; };
+
+function parseImportText(text) {
+  const items = [];
+  for (const raw of text.split('\n')) {
+    const line = raw.trim();
+    if (!line) continue;
+    let name, description;
+    if (line.includes('|')) {
+      const [n, ...rest] = line.split('|');
+      name = n.trim();
+      description = rest.join('|').trim();
+    } else {
+      name = line;
+      description = '';
+    }
+    items.push({ name, description });
+  }
+  return items;
+}
+
+document.getElementById('imp-go').onclick = async () => {
+  const items = parseImportText(document.getElementById('imp-text').value);
+  const resultEl = document.getElementById('imp-result');
+  if (!items.length) { resultEl.textContent = '请输入至少一行'; return; }
+  resultEl.textContent = '导入中…';
+  const { ok, data } = await api('/api/machines/bulk', { method: 'POST', body: { items } });
+  if (!ok) { resultEl.textContent = data.error || '导入失败'; return; }
+  await refresh();
+  const skipMsg = data.skipped.length ? `,跳过 ${data.skipped.length} 行(空名)` : '';
+  resultEl.textContent = `已导入 ${data.created} 台${skipMsg}`;
+  toast(`已导入 ${data.created} 台机器`, 'ok');
+  document.getElementById('imp-text').value = '';
+  if (!data.skipped.length) setTimeout(() => { document.getElementById('import-panel').hidden = true; }, 800);
+};
+
 // ---------- daily-clear schedule panel ----------
 let schedule = { enabled: false, time: '00:00', lastCleared: null, nextClear: null };
 
