@@ -389,6 +389,63 @@ function toast(msg, kind) {
 function startPolling() { if (pollTimer) clearInterval(pollTimer); pollTimer = setInterval(refresh, 4000); }
 setInterval(() => render(), 60000);
 
+// ---------- daily-clear schedule panel ----------
+let schedule = { enabled: false, time: '00:00', lastCleared: null, nextClear: null };
+
+function fmtDateTime(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return d.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
+
+function updateSchedulePanel() {
+  document.getElementById('sch-enabled').checked = !!schedule.enabled;
+  document.getElementById('sch-time').value = schedule.time || '00:00';
+  document.getElementById('sch-status').textContent = schedule.enabled ? '已开启' : '关闭';
+  document.getElementById('sch-next').textContent = schedule.enabled ? fmtDateTime(schedule.nextClear) : '—';
+  document.getElementById('sch-last').textContent = fmtDateTime(schedule.lastCleared);
+}
+
+async function loadSchedule() {
+  const { ok, data } = await api('/api/schedule');
+  if (ok) { schedule = data; updateSchedulePanel(); }
+}
+
+document.getElementById('btn-schedule').onclick = async () => {
+  const panel = document.getElementById('schedule-panel');
+  const open = panel.hidden;
+  panel.hidden = !open;
+  if (open) await loadSchedule();
+};
+document.getElementById('sch-close').onclick = () => { document.getElementById('schedule-panel').hidden = true; };
+
+document.getElementById('sch-enabled').onchange = async (e) => {
+  const { ok, data } = await api('/api/schedule', { method: 'PATCH', body: { enabled: e.target.checked } });
+  if (ok) { schedule = data; updateSchedulePanel(); toast(data.enabled ? '已开启定时清空' : '已关闭定时清空', 'ok'); }
+  else { toast(data.error || '失败', 'error'); updateSchedulePanel(); }
+};
+
+document.getElementById('sch-time').onchange = async (e) => {
+  const { ok, data } = await api('/api/schedule', { method: 'PATCH', body: { time: e.target.value } });
+  if (ok) { schedule = data; updateSchedulePanel(); toast(`清空时间设为 ${data.time}`, 'ok'); }
+  else { toast(data.error || '时间格式错误', 'error'); updateSchedulePanel(); }
+};
+
+document.getElementById('sch-clear-now').onclick = async () => {
+  if (!confirm('立即清空所有机器的占用与队列?此操作不可撤销。')) return;
+  const { ok, data } = await api('/api/schedule/clear-now', { method: 'POST' });
+  if (ok) { schedule = data; updateSchedulePanel(); await refresh(); toast('已清空所有占用与队列', 'ok'); }
+  else toast(data.error || '失败', 'error');
+};
+
+// keep the panel's "next clear" fresh while it's open
+const _origRefresh = refresh;
+refresh = async function () {
+  await _origRefresh();
+  const panel = document.getElementById('schedule-panel');
+  if (panel && !panel.hidden) loadSchedule();
+};
+
 // ---------- init ----------
 (async function init() {
   initWhoBar();

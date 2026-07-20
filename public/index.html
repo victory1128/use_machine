@@ -19,7 +19,33 @@
       </div>
       <div class="topbar-actions">
         <span id="sync-indicator" class="sync" title="实时同步状态">●</span>
+        <button id="btn-schedule" class="btn btn-ghost" title="定时清空设置">⚙</button>
         <button id="btn-add-machine" class="btn btn-primary">+ 添加机器</button>
+      </div>
+    </div>
+
+    <!-- 定时清空设置面板 -->
+    <div id="schedule-panel" class="schedule-panel" hidden>
+      <label class="sch-row">
+        <span class="sch-label">每日定时清空</span>
+        <input id="sch-enabled" type="checkbox" />
+        <span class="muted" id="sch-status">关闭</span>
+      </label>
+      <label class="sch-row">
+        <span class="sch-label">每天清空时间</span>
+        <input id="sch-time" type="time" value="00:00" />
+      </label>
+      <div class="sch-row">
+        <span class="sch-label">下次清空</span>
+        <span id="sch-next" class="muted">—</span>
+      </div>
+      <div class="sch-row">
+        <span class="sch-label">上次清空</span>
+        <span id="sch-last" class="muted">—</span>
+      </div>
+      <div class="sch-actions">
+        <button id="sch-clear-now" class="btn btn-danger btn-sm">立即清空所有占用与队列</button>
+        <button id="sch-close" class="btn btn-ghost btn-sm">关闭</button>
       </div>
     </div>
 

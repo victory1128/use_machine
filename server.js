@@ -18,6 +18,19 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 // Data store
 // ---------------------------------------------------------------------------
 
+// daily-clear schedule: { enabled: bool, time: "HH:MM", lastCleared: iso|null }
+const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/; // HH:MM, 00:00–23:59
+function isValidTime(t) { return TIME_RE.test(String(t)); }
+function normalizeSchedule(s) {
+  s = s && typeof s === 'object' ? s : {};
+  const time = isValidTime(s.time) ? String(s.time) : '00:00';
+  return {
+    enabled: s.enabled === true,
+    time,
+    lastCleared: typeof s.lastCleared === 'string' ? s.lastCleared : null,
+  };
+}
+
 let state = loadState();
 
 function loadState() {
@@ -27,6 +40,7 @@ function loadState() {
     return {
       machines: Array.isArray(parsed.machines) ? parsed.machines : [],
       names: Array.isArray(parsed.names) ? parsed.names : [],
+      schedule: normalizeSchedule(parsed.schedule),
     };
   } catch {
     // No data.json yet: seed from seed.json if it exists, else start empty.
@@ -37,7 +51,7 @@ function loadState() {
 // seed.json format (all optional):
 //   { "machines": [ { "name": "...", "cardCount": 8, "cardLabels": ["NPU0",...], "description": "..." } ] }
 function seedFromPreset() {
-  const state = { machines: [], names: [] };
+  const state = { machines: [], names: [], schedule: normalizeSchedule(null) };
   try {
     const raw = fs.readFileSync(SEED_FILE, 'utf8');
     const preset = JSON.parse(raw);
@@ -345,9 +359,79 @@ function rememberName(user) {
 
 // POST /api/reset  — wipe everything (handy in dev)
 function resetAll() {
-  state = { machines: [], names: [] };
+  state = { machines: [], names: [], schedule: normalizeSchedule(state.schedule) };
   persist();
   return { status: 200, body: { ok: true } };
+}
+
+// ---------------------------------------------------------------------------
+// Daily scheduled clear
+// ---------------------------------------------------------------------------
+
+// Clear all occupancies and queues across all machines.
+function clearAllOccupancy() {
+  for (const m of state.machines) {
+    for (const card of m.cards) card.occupancy = null;
+    m.queue = [];
+  }
+  state.schedule.lastCleared = nowIso();
+  persist();
+}
+
+// Compute the next scheduled clear time (Date) given current time + schedule.
+function nextClearDate(schedule, now) {
+  const nowMs = typeof now === 'number' ? now : now.getTime();
+  const [h, min] = schedule.time.split(':').map((x) => parseInt(x, 10));
+  const next = new Date(nowMs);
+  next.setHours(h, min, 0, 0);
+  if (next.getTime() <= nowMs) next.setDate(next.getDate() + 1);
+  return next;
+}
+
+// Check every minute; if past today's target and not yet cleared today, fire.
+let scheduleTimer = null;
+function startScheduler() {
+  if (scheduleTimer) clearInterval(scheduleTimer);
+  scheduleTimer = setInterval(() => {
+    const s = state.schedule;
+    if (!s || !s.enabled) return;
+    const now = new Date();
+    const target = new Date(now);
+    const [h, min] = s.time.split(':').map((x) => parseInt(x, 10));
+    target.setHours(h, min, 0, 0);
+    // already cleared today? compare lastCleared date
+    const last = s.lastCleared ? new Date(s.lastCleared) : null;
+    const lastSameDay = last && last.toDateString() === now.toDateString();
+    if (!lastSameDay && now.getTime() >= target.getTime()) {
+      clearAllOccupancy();
+      console.log(`[schedule] 已定时清空所有占用与队列 (${s.time})`);
+    }
+  }, 60 * 1000);
+}
+
+// GET /api/schedule  -> { enabled, time, lastCleared, nextClear }
+function getSchedule() {
+  const s = state.schedule;
+  const next = s.enabled ? nextClearDate(s, Date.now()).toISOString() : null;
+  return { status: 200, body: { ...s, nextClear: next } };
+}
+
+// PATCH /api/schedule  { enabled?, time? }
+function updateSchedule(body) {
+  const s = state.schedule;
+  if (body && typeof body.enabled === 'boolean') s.enabled = body.enabled;
+  if (body && 'time' in body) {
+    if (!isValidTime(body.time)) return { status: 400, body: { error: 'time 格式应为 HH:MM(00:00–23:59)' } };
+    s.time = String(body.time);
+  }
+  persist();
+  return getSchedule();
+}
+
+// POST /api/schedule/clear-now  -> manually trigger a clear now
+function clearNow() {
+  clearAllOccupancy();
+  return getSchedule();
 }
 
 // ---------------------------------------------------------------------------
@@ -367,6 +451,7 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(204, cors);
     return res.end();
   }
+  try {
 
   // ---- API ----
   if (p === '/api/state' && method === 'GET') {
@@ -431,9 +516,25 @@ const server = http.createServer(async (req, res) => {
     const r = resetAll();
     return sendJson(res, r.status, r.body);
   }
+  if (p === '/api/schedule' && method === 'GET') {
+    return sendJson(res, 200, getSchedule().body);
+  }
+  if (p === '/api/schedule' && method === 'PATCH') {
+    const body = await readBody(req);
+    if (body.__parseError) return sendJson(res, 400, { error: 'invalid json' });
+    const r = updateSchedule(body);
+    return sendJson(res, r.status, r.body);
+  }
+  if (p === '/api/schedule/clear-now' && method === 'POST') {
+    return sendJson(res, 200, clearNow().body);
+  }
 
   // ---- Static ----
   return serveStatic(req, res);
+  } catch (err) {
+    console.error('request error:', err.message);
+    if (!res.headersSent) sendJson(res, 500, { error: 'internal error' });
+  }
 });
 
 server.listen(PORT, '0.0.0.0', () => {
@@ -445,6 +546,11 @@ server.listen(PORT, '0.0.0.0', () => {
   }
   if (state.machines.length === 0) {
     console.log('  (还没有机器,打开页面后点击「添加机器」即可开始)');
+  }
+  startScheduler(); // start the daily-clear checker
+  if (state.schedule && state.schedule.enabled) {
+    const next = nextClearDate(state.schedule, Date.now());
+    console.log(`  每日定时清空已开启:每天 ${state.schedule.time}(下次 ${next.toLocaleString()})\n`);
   }
 });
 
