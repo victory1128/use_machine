@@ -1,0 +1,7 @@
+{
+  "machines": [
+    { "name": "A100-Server-01", "cardCount": 8, "description": "8×A100 80GB, 训练专用" },
+    { "name": "A800-Server-02", "cardCount": 8, "description": "8×A800, 推理/调试" },
+    { "name": "3090-Workstation", "cardCount": 4, "description": "4×RTX3090, 轻量任务" }
+  ]
+}

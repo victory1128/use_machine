@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>机器复用 · NPU 占用与排队</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div class="app-header">
+    <div class="topbar">
+      <div class="brand">
+        <span class="logo">▣</span>
+        <h1>机器复用</h1>
+        <span class="subtitle">NPU 占用 &amp; 排队</span>
+      </div>
+      <div class="search-box">
+        <input id="search" type="search" placeholder="搜索机器名 / 描述…" autocomplete="off" />
+      </div>
+      <div class="topbar-actions">
+        <span id="sync-indicator" class="sync" title="实时同步状态">●</span>
+        <button id="btn-add-machine" class="btn btn-primary">+ 添加机器</button>
+      </div>
+    </div>
+
+    <div class="whobar">
+      <div class="who-field">
+        <span class="who-label">我是</span>
+        <input id="who-name" type="text" list="name-list" placeholder="你的名字" />
+        <datalist id="name-list"></datalist>
+      </div>
+      <div class="who-field">
+        <span class="who-label">备注</span>
+        <input id="who-info" type="text" placeholder="可选,占用时自动带上" />
+      </div>
+      <div class="who-tags" id="who-tags"></div>
+      <div class="mode-toggle">
+        <button class="mode-btn active" data-mode="all">全部占用</button>
+        <button class="mode-btn" data-mode="card">按卡占用</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="add-machine-bar" class="add-bar" hidden>
+    <input id="m-name" type="text" placeholder="机器名称 *" />
+    <input id="m-desc" type="text" placeholder="描述(可选)" />
+    <input id="m-count" type="number" min="1" max="64" value="8" title="卡数" />
+    <button id="m-save" class="btn btn-primary">添加</button>
+    <button id="m-cancel" class="btn btn-ghost">取消</button>
+  </div>
+
+  <main id="app">
+    <div id="machines" class="machines"></div>
+    <div id="empty-state" class="empty-state" hidden>
+      <p>还没有机器,点击右上角「添加机器」开始。</p>
+    </div>
+    <div id="no-match" class="empty-state" hidden>
+      <p>没有匹配的机器。</p>
+    </div>
+  </main>
+
+  <div id="hint" class="hint">
+    <b>用法:</b> 顶部填好名字 →
+    <b>全部占用</b>(默认)模式:点机器「占用」一键占满空闲卡;
+    切到 <b>按卡占用</b>:点单张卡只占那一张。
+    点自己占用的卡(蓝色)释放,或用「释放我的」批量释放。
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+  <script src="/app.js"></script>
+</body>
+</html>
