@@ -257,51 +257,32 @@ function openMachineEdit(mid) {
     <input class="me-desc" type="text" value="${escapeHtml(m.description || '')}" placeholder="描述(可选)" />
     <div class="me-cards">
       <span class="me-cards-label">卡数</span>
-      <span class="me-cards-count">${m.cards.length}</span>
-      <button class="btn btn-sm me-add" title="加卡">+ 加卡</button>
-      <button class="btn btn-sm me-remove" title="减卡(从尾部,只减空闲卡)">− 减卡</button>
+      <input class="me-cards-input" type="number" min="0" max="64" value="${m.cards.length}" title="改为目标卡数(超出部分从尾部删除,含占用)" />
     </div>
     <button class="btn btn-sm btn-primary me-save">保存</button>
     <button class="btn btn-sm btn-ghost me-cancel">取消</button>`;
   head.after(row);
   const nameInp = row.querySelector('.me-name');
   const descInp = row.querySelector('.me-desc');
-  const countEl = row.querySelector('.me-cards-count');
+  const cardsInp = row.querySelector('.me-cards-input');
+  const origCount = m.cards.length;
   activeMachineId = mid; // pause re-render of this machine while editing
   setTimeout(() => { nameInp.focus(); nameInp.select(); }, 30);
   const closeEdit = () => { activeMachineId = null; row.remove(); };
 
-  // adjust cards: + / -. After changing card count, close the edit panel so the
-  // machine's DOM is fully rebuilt with the new cards (the panel-preservation
-  // logic would otherwise keep the stale node).
-  row.querySelector('.me-add').onclick = async () => {
-    const n = prompt('加几张卡?', '1');
-    if (!n) return;
-    const cnt = parseInt(n, 10) || 1;
-    const { ok, data } = await api(`/api/machines/${mid}/cards`, { method: 'POST', body: { count: cnt } });
-    if (!ok) return toast(data.error || '加卡失败', 'error');
-    activeMachineId = null;
-    await refresh();
-    toast(`已加 ${cnt} 张卡`, 'ok');
-    openMachineEdit(mid); // reopen edit on the fresh node
-  };
-  row.querySelector('.me-remove').onclick = async () => {
-    const n = prompt('减几张卡?(从尾部移除,只减空闲卡)', '1');
-    if (!n) return;
-    const cnt = parseInt(n, 10) || 1;
-    const { ok, data } = await api(`/api/machines/${mid}/remove-cards`, { method: 'POST', body: { count: cnt } });
-    if (!ok) return toast(data.error || '减卡失败', 'error');
-    activeMachineId = null;
-    await refresh();
-    toast(`已减 ${data.removed} 张卡`, 'ok');
-    openMachineEdit(mid);
-  };
-
   row.querySelector('.me-save').onclick = async () => {
     const name = nameInp.value.trim();
     if (!name) return toast('请输入名称', 'error');
-    const { ok, data } = await api(`/api/machines/${mid}`, { method: 'PATCH', body: { name, description: descInp.value.trim() } });
-    if (!ok) return toast(data.error || '失败', 'error');
+    const desc = descInp.value.trim();
+    const targetCount = Math.max(0, Math.min(64, parseInt(cardsInp.value, 10) || 0));
+    // 1. save name + description
+    const pr = await api(`/api/machines/${mid}`, { method: 'PATCH', body: { name, description: desc } });
+    if (!pr.ok) return toast(pr.data.error || '保存失败', 'error');
+    // 2. adjust card count if changed
+    if (targetCount !== origCount) {
+      const cr = await api(`/api/machines/${mid}/set-cards`, { method: 'POST', body: { count: targetCount } });
+      if (!cr.ok) return toast(cr.data.error || '卡数调整失败', 'error');
+    }
     activeMachineId = null;
     await refresh(); toast('已更新', 'ok');
   };

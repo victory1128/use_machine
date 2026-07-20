@@ -302,6 +302,24 @@ function removeCards(id, body) {
   return { status: 200, body: { machine: m, removed } };
 }
 
+// POST /api/machines/:id/set-cards  { count }
+// Set the machine's card count to exactly `count`. Extra trailing cards are
+// removed (busy ones too — their occupancy is discarded). Fewer => appended.
+function setCards(id, body) {
+  const m = findMachine(id);
+  if (!m) return { status: 404, body: { error: 'not found' } };
+  const target = Math.max(0, Math.min(64, parseInt(body.count, 10)));
+  if (Number.isNaN(target)) return { status: 400, body: { error: 'count required' } };
+  let removed = 0, added = 0;
+  while (m.cards.length > target) { m.cards.pop(); removed++; }
+  while (m.cards.length < target) {
+    m.cards.push({ id: `card-${m.cards.length}`, label: `NPU${m.cards.length}`, occupancy: null });
+    added++;
+  }
+  persist();
+  return { status: 200, body: { machine: m, removed, added } };
+}
+
 // DELETE /api/machines/:id
 function deleteMachine(id) {
   const idx = state.machines.findIndex((m) => m.id === id);
@@ -548,6 +566,13 @@ const server = http.createServer(async (req, res) => {
     const body = await readBody(req);
     if (body.__parseError) return sendJson(res, 400, { error: 'invalid json' });
     const r = removeCards(m[1], body);
+    return sendJson(res, r.status, r.body);
+  }
+  m = p.match(/^\/api\/machines\/([\w-]+)\/set-cards$/);
+  if (m && method === 'POST') {
+    const body = await readBody(req);
+    if (body.__parseError) return sendJson(res, 400, { error: 'invalid json' });
+    const r = setCards(m[1], body);
     return sendJson(res, r.status, r.body);
   }
   m = p.match(/^\/api\/machines\/([\w-]+)\/occupy$/);
