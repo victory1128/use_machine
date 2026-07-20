@@ -279,6 +279,29 @@ function addCards(id, body) {
   return { status: 200, body: m };
 }
 
+// POST /api/machines/:id/remove-cards  { count }
+// Remove up to N cards from the end; only free cards are removed.
+function removeCards(id, body) {
+  const m = findMachine(id);
+  if (!m) return { status: 404, body: { error: 'not found' } };
+  const want = Math.max(1, Math.min(64, parseInt(body.count, 10) || 1));
+  let removed = 0;
+  // pop from the end, skipping busy cards
+  for (let i = 0; i < want && m.cards.length; ) {
+    const last = m.cards[m.cards.length - 1];
+    if (last.occupancy) {
+      // busy card blocks further removal from the end; stop to avoid gaps
+      break;
+    }
+    m.cards.pop();
+    removed++;
+    i++;
+  }
+  persist();
+  if (!removed) return { status: 409, body: { error: '尾部卡被占用,无法减少(请先释放)', machine: m } };
+  return { status: 200, body: { machine: m, removed } };
+}
+
 // DELETE /api/machines/:id
 function deleteMachine(id) {
   const idx = state.machines.findIndex((m) => m.id === id);
@@ -518,6 +541,13 @@ const server = http.createServer(async (req, res) => {
     const body = await readBody(req);
     if (body.__parseError) return sendJson(res, 400, { error: 'invalid json' });
     const r = addCards(m[1], body);
+    return sendJson(res, r.status, r.body);
+  }
+  m = p.match(/^\/api\/machines\/([\w-]+)\/remove-cards$/);
+  if (m && method === 'POST') {
+    const body = await readBody(req);
+    if (body.__parseError) return sendJson(res, 400, { error: 'invalid json' });
+    const r = removeCards(m[1], body);
     return sendJson(res, r.status, r.body);
   }
   m = p.match(/^\/api\/machines\/([\w-]+)\/occupy$/);

@@ -116,7 +116,6 @@ function renderMachine(m) {
         ${mine > 0 ? `<button class="btn btn-sm" data-act="release-mine" data-mid="${m.id}">释放我的</button>` : ''}
         <button class="btn btn-sm" data-act="queue" data-mid="${m.id}">排队</button>
         <button class="btn btn-sm btn-ghost" data-act="edit" data-mid="${m.id}" title="编辑机器信息">✎</button>
-        <button class="btn btn-sm btn-ghost" data-act="addcards" data-mid="${m.id}" title="增加卡">+卡</button>
         <button class="btn btn-sm btn-danger" data-act="del" data-mid="${m.id}" title="删除机器">删</button>
       </div>
     </div>`;
@@ -203,13 +202,6 @@ document.getElementById('machines').addEventListener('click', async (e) => {
     }
     if (act === 'queue') return openQueueJoin(mid);
     if (act === 'edit') return openMachineEdit(mid);
-    if (act === 'addcards') {
-      const n = prompt('要增加几张卡?', '1');
-      if (!n) return;
-      const { ok, data } = await api(`/api/machines/${mid}/cards`, { method: 'POST', body: { count: parseInt(n, 10) || 1 } });
-      if (!ok) return toast(data.error || '失败', 'error');
-      await refresh(); return toast('已增加卡', 'ok');
-    }
     if (act === 'del') {
       if (!confirm('删除这台机器及其所有占用/排队记录?')) return;
       const { ok, data } = await api(`/api/machines/${mid}`, { method: 'DELETE' });
@@ -263,14 +255,48 @@ function openMachineEdit(mid) {
   row.innerHTML = `
     <input class="me-name" type="text" value="${escapeHtml(m.name)}" placeholder="机器名称" />
     <input class="me-desc" type="text" value="${escapeHtml(m.description || '')}" placeholder="描述(可选)" />
+    <div class="me-cards">
+      <span class="me-cards-label">卡数</span>
+      <span class="me-cards-count">${m.cards.length}</span>
+      <button class="btn btn-sm me-add" title="加卡">+ 加卡</button>
+      <button class="btn btn-sm me-remove" title="减卡(从尾部,只减空闲卡)">− 减卡</button>
+    </div>
     <button class="btn btn-sm btn-primary me-save">保存</button>
     <button class="btn btn-sm btn-ghost me-cancel">取消</button>`;
   head.after(row);
   const nameInp = row.querySelector('.me-name');
   const descInp = row.querySelector('.me-desc');
-  activeMachineId = mid; // pause re-render of this machine while typing
+  const countEl = row.querySelector('.me-cards-count');
+  activeMachineId = mid; // pause re-render of this machine while editing
   setTimeout(() => { nameInp.focus(); nameInp.select(); }, 30);
   const closeEdit = () => { activeMachineId = null; row.remove(); };
+
+  // adjust cards: + / -. After changing card count, close the edit panel so the
+  // machine's DOM is fully rebuilt with the new cards (the panel-preservation
+  // logic would otherwise keep the stale node).
+  row.querySelector('.me-add').onclick = async () => {
+    const n = prompt('加几张卡?', '1');
+    if (!n) return;
+    const cnt = parseInt(n, 10) || 1;
+    const { ok, data } = await api(`/api/machines/${mid}/cards`, { method: 'POST', body: { count: cnt } });
+    if (!ok) return toast(data.error || '加卡失败', 'error');
+    activeMachineId = null;
+    await refresh();
+    toast(`已加 ${cnt} 张卡`, 'ok');
+    openMachineEdit(mid); // reopen edit on the fresh node
+  };
+  row.querySelector('.me-remove').onclick = async () => {
+    const n = prompt('减几张卡?(从尾部移除,只减空闲卡)', '1');
+    if (!n) return;
+    const cnt = parseInt(n, 10) || 1;
+    const { ok, data } = await api(`/api/machines/${mid}/remove-cards`, { method: 'POST', body: { count: cnt } });
+    if (!ok) return toast(data.error || '减卡失败', 'error');
+    activeMachineId = null;
+    await refresh();
+    toast(`已减 ${data.removed} 张卡`, 'ok');
+    openMachineEdit(mid);
+  };
+
   row.querySelector('.me-save').onclick = async () => {
     const name = nameInp.value.trim();
     if (!name) return toast('请输入名称', 'error');
